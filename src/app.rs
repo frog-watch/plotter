@@ -7,6 +7,9 @@ use crate::{FFTPlot, TimeSeriesPlot};
 pub struct PlotApp {
     pub timeseries: Arc<Mutex<TimeSeriesPlot>>,
     pub fft: Arc<Mutex<FFTPlot>>,
+    y_max: f64,
+    f_max: f64,
+    history_s: f64,
 }
 
 impl PlotApp {
@@ -15,9 +18,16 @@ impl PlotApp {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
+        let f_max = 75.0;
+        let history_s = 10.0;
+        let fs = 1000.0;
+
         Self {
-            timeseries: Arc::new(Mutex::new(TimeSeriesPlot::new(10000))),
-            fft: Arc::new(Mutex::new(FFTPlot::new(75.0))),
+            timeseries: Arc::new(Mutex::new(TimeSeriesPlot::new(fs, history_s))),
+            fft: Arc::new(Mutex::new(FFTPlot::new(f_max))),
+            y_max: 1.0,
+            f_max,
+            history_s,
         }
     }
 }
@@ -34,6 +44,8 @@ impl eframe::App for PlotApp {
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
+        let mut new_fmax = self.f_max;
+        let mut new_hist = self.history_s;
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
 
@@ -51,58 +63,45 @@ impl eframe::App for PlotApp {
 
                 egui::widgets::global_dark_light_mode_buttons(ui);
 
+                ui.add(egui::Label::new("Ymax:"));
+                ui.add(egui::widgets::DragValue::new(&mut self.y_max).clamp_range(0..=100));
+
+                ui.add(egui::Label::new("Fmax:"));
+                ui.add(egui::widgets::DragValue::new(&mut new_fmax).clamp_range(5..=1000));
+
+                ui.add(egui::Label::new("Hist:"));
+                ui.add(egui::widgets::DragValue::new(&mut new_hist).clamp_range(2..=600));
             });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("Frogwatch Plotter");
-
+            let y_max = self.y_max;
             let time_plot = Plot::new("Time Plot").view_aspect(4.0);
-            time_plot.show(ui, |plot_ui| {
-                plot_ui.line(Line::new(
-                    self.timeseries.lock().unwrap().plot_values(),
-                ));
-            });
+            time_plot
+                .include_y(y_max)
+                .include_y(-y_max)
+                .show(ui, |plot_ui| {
+                    plot_ui.line(Line::new(self.timeseries.lock().unwrap().plot_values()));
+                });
 
             ui.separator();
 
-            let fft_plot = Plot::new("fft").view_aspect(4.0);
+            let fft_plot = Plot::new("fft").view_aspect(4.0).include_x(self.f_max);
             fft_plot.show(ui, |plot_ui| {
-                plot_ui.line(Line::new(
-                    self.fft.lock().unwrap().plot_values(),
-                ));
+                plot_ui.line(Line::new(self.fft.lock().unwrap().plot_values()));
             });
-            // ui.horizontal(|ui| {
-            //     ui.label("Write something: ");
-            //     ui.text_edit_singleline(&mut self.label);
-            // });
 
-            // ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
-            // if ui.button("Increment").clicked() {
-            //     self.value += 1.0;
-            // }
-
-            // ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-            //     powered_by_egui_and_eframe(ui);
-            //     egui::warn_if_debug_build(ui);
-            // });
-              // make it always repaint. TODO: can we slow down here?
-        ctx.request_repaint();
+            ctx.request_repaint();
         });
-    }
-}
 
-fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 0.0;
-        ui.label("Powered by ");
-        ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-        ui.label(" and ");
-        ui.hyperlink_to(
-            "eframe",
-            "https://github.com/emilk/egui/tree/master/crates/eframe",
-        );
-        ui.label(".");
-    });
+        if self.f_max != new_fmax {
+            self.f_max = new_fmax;
+            self.fft.lock().unwrap().set_f_max(new_fmax);
+        }
+        if self.history_s != new_hist {
+            self.history_s = new_hist;
+            self.timeseries.lock().unwrap().update_history_s(new_hist);
+        }
+    }
 }

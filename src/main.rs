@@ -1,15 +1,18 @@
 #![warn(clippy::all, rust_2018_idioms)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use std::io::{self, Read};
-use std::{net::{TcpListener, TcpStream}, sync::{Arc, Mutex}, thread};
 use frogwatch_plotter::TimeSeriesPlot;
+use std::io::{self, Read};
+use std::{
+    net::{TcpListener, TcpStream},
+    sync::{Arc, Mutex},
+    thread,
+};
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
     use frogwatch_plotter::FFTPlot;
-
 
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
@@ -71,10 +74,7 @@ fn main() -> eframe::Result<()> {
                             //     continue;
                             // }
 
-                            monitor
-                                .lock()
-                                .unwrap()
-                                .add(t, x);
+                            monitor.lock().unwrap().add(t, x);
                             t += 1.0;
                         }
                     }
@@ -112,13 +112,9 @@ fn main() -> eframe::Result<()> {
     });
 
     thread::spawn(move || {
-        fn handle_client(
-            mut stream: TcpStream,
-            monitor: Arc<Mutex<FFTPlot>>,
-        ) -> io::Result<()> {
+        fn handle_client(mut stream: TcpStream, monitor: Arc<Mutex<FFTPlot>>) -> io::Result<()> {
             let mut buffer = [0; 8092]; // Buffer to store the data
             let mut parse_buffer = String::with_capacity(8092);
-
 
             // Read data from the stream into the buffer
             while let Ok(bytes_read) = stream.read(&mut buffer) {
@@ -161,10 +157,7 @@ fn main() -> eframe::Result<()> {
 
                             vec.push(x);
                         }
-                        monitor
-                            .lock()
-                            .unwrap()
-                            .add(vec);
+                        monitor.lock().unwrap().add(vec);
                     }
 
                     leftover
