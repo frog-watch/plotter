@@ -113,8 +113,8 @@ fn main() -> eframe::Result<()> {
 
     thread::spawn(move || {
         fn handle_client(mut stream: TcpStream, monitor: Arc<Mutex<FFTPlot>>) -> io::Result<()> {
-            let mut buffer = [0; 8092]; // Buffer to store the data
-            let mut parse_buffer = String::with_capacity(8092);
+            let mut buffer = [0; 80920]; // Buffer to store the data
+            let mut parse_buffer = String::with_capacity(80920);
 
             // Read data from the stream into the buffer
             while let Ok(bytes_read) = stream.read(&mut buffer) {
